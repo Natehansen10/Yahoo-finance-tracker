@@ -1,0 +1,4 @@
+# Real holdings: personal financial data. This repo is public.
+holdings.csv
+__pycache__/
+.venv/

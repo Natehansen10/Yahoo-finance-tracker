@@ -1,0 +1,5 @@
+account,symbol,shares,cost_basis,value
+Brokerage,AAPL,10,1500.00,
+Brokerage,BRK.B,2.5,,
+Brokerage,CASH,250.00,250.00,
+Robo Account,VTI,,,5000.00
