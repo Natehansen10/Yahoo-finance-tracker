@@ -2,3 +2,5 @@
 holdings.csv
 __pycache__/
 .venv/
+.env
+report.log
