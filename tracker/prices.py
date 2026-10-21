@@ -11,6 +11,7 @@ import yfinance as yf
 class Quote:
     price: float
     prev_close: float
+    as_of: date | None = None  # trading day of the latest price
 
     @property
     def change(self) -> float:
@@ -40,9 +41,9 @@ def fetch_quotes(symbols: list[str]) -> dict[str, Quote]:
     for sym in closes.columns:
         series = closes[sym].dropna()
         if len(series) >= 2:
-            quotes[sym] = Quote(price=float(series.iloc[-1]), prev_close=float(series.iloc[-2]))
+            quotes[sym] = Quote(float(series.iloc[-1]), float(series.iloc[-2]), series.index[-1].date())
         elif len(series) == 1:
-            quotes[sym] = Quote(price=float(series.iloc[-1]), prev_close=float(series.iloc[-1]))
+            quotes[sym] = Quote(float(series.iloc[-1]), float(series.iloc[-1]), series.index[-1].date())
     return quotes
 
 

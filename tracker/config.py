@@ -7,6 +7,12 @@ ROOT = Path(__file__).resolve().parent.parent
 # Your real holdings. Gitignored, never commit it. Copy holdings.example.csv to start.
 HOLDINGS_FILE = ROOT / "holdings.csv"
 
+# Email settings (Gmail app password etc). Gitignored. Copy .env.example to start.
+ENV_FILE = ROOT / ".env"
+
+# Biggest gainers and losers listed in the daily report.
+REPORT_TOP_N = 5
+
 # Seconds between refreshes in live mode.
 REFRESH_SECONDS = 60
 
