@@ -42,3 +42,22 @@ def test_missing_price_left_out():
     out = render(positions, {}, [], top_n=10)
     assert "TOTAL  $250.00" in out
     assert "No price" in out
+
+
+def test_cash_has_no_gain():
+    holdings = load_holdings(EXAMPLE)
+    positions = build_positions(holdings, {}, {}, "CASH")
+    cash = next(p for p in positions if p.symbol == "CASH")
+    assert cash.cost_basis is None
+
+
+def test_estimate_note_only_when_estimated():
+    holdings = [h for h in load_holdings(EXAMPLE) if h.shares is not None]
+    quotes = {"AAPL": Quote(200.0, 190.0), "BRK-B": Quote(500.0, 500.0)}
+    exact = render(build_positions(holdings, quotes, {}, "CASH"), quotes, [], top_n=10)
+    assert "estimated" not in exact
+
+    holdings = load_holdings(EXAMPLE)
+    quotes["VTI"] = Quote(260.0, 250.0)
+    estimated = render(build_positions(holdings, quotes, {"VTI": 250.0}, "CASH"), quotes, [], top_n=10)
+    assert "estimated" in estimated

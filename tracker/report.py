@@ -38,7 +38,8 @@ def build_positions(
         if shares is None:
             close = 1.0 if h.symbol == cash_symbol else snapshot_closes.get(h.symbol)
             shares, estimated = (h.value / close, True) if close else (0.0, True)
-        positions.append(Position(h.account, h.symbol, shares, estimated, h.cost_basis, quote))
+        cost_basis = None if h.symbol == cash_symbol else h.cost_basis  # cash has no gain
+        positions.append(Position(h.account, h.symbol, shares, estimated, cost_basis, quote))
     return positions
 
 
@@ -94,7 +95,9 @@ def render(positions: list[Position], watch: dict[str, Quote], watchlist: list[s
         q = watch.get(sym)
         lines.append(f"  {sym:<7}{_money(q.price):>11}{_pct(q.change_pct):>9}" if q else f"  {sym:<7}{'no price':>11}")
 
-    lines.append("\n~ shares estimated from a dollar value. Prices from Yahoo, may be delayed.")
+    if any(p.estimated for p in positions):
+        lines.append("\n~ shares estimated from a dollar value.")
+    lines.append("\nPrices from Yahoo, may be delayed.")
     if missing:
         lines.append("No price (left out of totals): " + ", ".join(missing))
     return "\n".join(lines)
