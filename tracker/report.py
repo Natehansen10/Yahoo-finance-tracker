@@ -1,0 +1,100 @@
+"""Turn holdings and quotes into text tables. No network calls here."""
+
+from collections import defaultdict
+from dataclasses import dataclass
+
+from .portfolio import Holding
+from .prices import Quote
+
+
+@dataclass
+class Position:
+    account: str
+    symbol: str
+    shares: float
+    estimated: bool
+    cost_basis: float | None
+    quote: Quote | None
+
+    @property
+    def value(self) -> float:
+        return self.shares * self.quote.price if self.quote else 0.0
+
+    @property
+    def day_change(self) -> float:
+        return self.shares * self.quote.change if self.quote else 0.0
+
+
+def build_positions(
+    holdings: list[Holding],
+    quotes: dict[str, Quote],
+    snapshot_closes: dict[str, float],
+    cash_symbol: str,
+) -> list[Position]:
+    positions = []
+    for h in holdings:
+        quote = Quote(1.0, 1.0) if h.symbol == cash_symbol else quotes.get(h.symbol)
+        shares, estimated = h.shares, False
+        if shares is None:
+            close = 1.0 if h.symbol == cash_symbol else snapshot_closes.get(h.symbol)
+            shares, estimated = (h.value / close, True) if close else (0.0, True)
+        positions.append(Position(h.account, h.symbol, shares, estimated, h.cost_basis, quote))
+    return positions
+
+
+def _money(x: float) -> str:
+    return f"-${abs(x):,.2f}" if x < 0 else f"${x:,.2f}"
+
+
+def _signed(x: float) -> str:
+    return f"+{_money(x)}" if x >= 0 else _money(x)
+
+
+def _pct(x: float) -> str:
+    return f"{x:+.2f}%"
+
+
+def render(positions: list[Position], watch: dict[str, Quote], watchlist: list[str], top_n: int) -> str:
+    lines = []
+    by_account = defaultdict(list)
+    for p in positions:
+        by_account[p.account].append(p)
+
+    grand_value = grand_day = 0.0
+    missing = []
+    for account, rows in by_account.items():
+        rows.sort(key=lambda p: p.value, reverse=True)
+        value = sum(p.value for p in rows)
+        day = sum(p.day_change for p in rows)
+        prev = value - day
+        grand_value += value
+        grand_day += day
+        missing += [f"{p.account}: {p.symbol}" for p in rows if p.quote is None]
+
+        lines.append(f"\n{account}  {_money(value)}  {_signed(day)} ({_pct(day / prev * 100 if prev else 0)}) today")
+        lines.append(f"  {'SYMBOL':<7}{'SHARES':>11}{'PRICE':>11}{'DAY':>9}{'VALUE':>13}{'GAIN':>12}")
+        for p in rows[:top_n]:
+            if p.quote is None:
+                lines.append(f"  {p.symbol:<7}{'no price':>11}")
+                continue
+            shares = f"{p.shares:,.4f}" + ("~" if p.estimated else " ")
+            gain = _signed(p.value - p.cost_basis) if p.cost_basis is not None else ""
+            lines.append(
+                f"  {p.symbol:<7}{shares:>11}{_money(p.quote.price):>11}"
+                f"{_pct(p.quote.change_pct):>9}{_money(p.value):>13}{gain:>12}"
+            )
+        if len(rows) > top_n:
+            lines.append(f"  ... and {len(rows) - top_n} more")
+
+    prev = grand_value - grand_day
+    lines.append(f"\nTOTAL  {_money(grand_value)}  {_signed(grand_day)} ({_pct(grand_day / prev * 100 if prev else 0)}) today")
+
+    lines.append("\nWatchlist")
+    for sym in watchlist:
+        q = watch.get(sym)
+        lines.append(f"  {sym:<7}{_money(q.price):>11}{_pct(q.change_pct):>9}" if q else f"  {sym:<7}{'no price':>11}")
+
+    lines.append("\n~ shares estimated from a dollar value. Prices from Yahoo, may be delayed.")
+    if missing:
+        lines.append("No price (left out of totals): " + ", ".join(missing))
+    return "\n".join(lines)
